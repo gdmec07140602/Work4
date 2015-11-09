@@ -1,9 +1,15 @@
 package com.example.administrator.work4;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ContentUris;
+import android.content.ContentValues;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -13,6 +19,7 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MyContactsActivity extends Activity {
     private ListView lv;
@@ -67,8 +74,8 @@ public class MyContactsActivity extends Activity {
         lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                selectItem=i;
-                 lvAdapter.notifyDataSetChanged();
+                selectItem = i;
+                lvAdapter.notifyDataSetChanged();
             }
         });
     }
@@ -81,8 +88,8 @@ public class MyContactsActivity extends Activity {
         menu.add(0,3,3,"查看信息");
         menu.add(0,4,4,"删除");
         menu.add(0,5,5,"查询");
-        menu.add(0,6,6,"导入到手机电话簿");
-        menu.add(0,7,7,"退出");
+        menu.add(0, 6, 6, "导入到手机电话簿");
+        menu.add(0, 7, 7, "退出");
         return true;
     }
 
@@ -99,6 +106,42 @@ public class MyContactsActivity extends Activity {
                 Intent intent=new Intent(MyContactsActivity.this,AddContactsActivity.class);
                 startActivity(intent);
                 break;
+            case 2:
+                if (users[selectItem].getId_DB()>0){
+                    intent=new Intent(MyContactsActivity.this,UpdateContactsActivity.class);
+                    intent.putExtra("user_ID",users[selectItem].getId_DB());
+                    startActivity(intent);
+                }else {
+                    Toast.makeText(this,"无结果数据，无法操作！",Toast.LENGTH_SHORT).show();
+                }
+                break;
+            case 3:
+                if (users[selectItem].getId_DB()>0){
+                        intent=new Intent(MyContactsActivity.this,ContactsMessageActivity.class);
+                    intent.putExtra("user_ID",users[selectItem].getId_DB());
+                    startActivity(intent);
+                }else {
+                    Toast.makeText(this,"无结果记录，无法操作！",Toast.LENGTH_SHORT).show();
+                }
+                break;
+            case 4:
+                if (users[selectItem].getId_DB()>0){
+                        delete();
+                }else {
+                    Toast.makeText(this,"无结果记录，无法操作！",Toast.LENGTH_SHORT).show();
+                }
+                break;
+            case 5:
+                new FindDialog(MyContactsActivity.this).show();
+                break;
+            case 6:
+                if (users[selectItem].getId_DB()>0){
+                    impoortPhone(users[selectItem].getName(),users[selectItem].getMobile());
+                    Toast.makeText(this,"已经成功导入"+users[selectItem].getName()+"到手机电话簿！",Toast.LENGTH_SHORT).show();
+                }else {
+                    Toast.makeText(this,"无结果记录，无法操作！",Toast.LENGTH_SHORT).show();
+                }
+                break;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -109,5 +152,47 @@ public class MyContactsActivity extends Activity {
         ContactsTable ct=new ContactsTable(this);
         users=ct.getAllUser();
         lvAdapter.notifyDataSetChanged();
+    }
+    public void delete(){
+        AlertDialog.Builder alert=new AlertDialog.Builder(this);
+        alert.setTitle("系统信息");
+        alert.setMessage("是否要删除联系人？");
+        alert.setPositiveButton("是", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                ContactsTable ct = new ContactsTable(MyContactsActivity.this);
+                if (ct.deleteByUser(users[selectItem])) {
+                    users = ct.getAllUser();
+                    lvAdapter.notifyDataSetChanged();
+                    selectItem = 0;
+                    Toast.makeText(MyContactsActivity.this, "删除成功！", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(MyContactsActivity.this, "删除失败！", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        alert.setNegativeButton("否", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+            }
+        });
+        alert.show();
+    }
+    public void impoortPhone(String name,String phone){
+        Uri phoneURL= ContactsContract.Data.CONTENT_URI;
+        ContentValues values=new ContentValues();
+        Uri rawContactUri=this.getContentResolver().insert(ContactsContract.RawContacts.CONTENT_URI,values);
+        long rawContactId= ContentUris.parseId(rawContactUri);
+        values.clear();
+        values.put(ContactsContract.Contacts.Data.RAW_CONTACT_ID, rawContactId);
+        values.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
+        values.put(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME, name);
+        this.getContentResolver().insert(phoneURL, values);
+        values.clear();
+        values.put(ContactsContract.Contacts.Data.RAW_CONTACT_ID, rawContactId);
+        values.put(ContactsContract.Contacts.Data.MIMETYPE, ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE);
+        values.put(ContactsContract.CommonDataKinds.Phone.NUMBER,phone);
+        values.put(ContactsContract.CommonDataKinds.Phone.TYPE, ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE);
+        this.getContentResolver().insert(phoneURL,values);
     }
 }
